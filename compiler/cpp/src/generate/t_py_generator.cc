@@ -349,11 +349,18 @@ void t_py_generator::init_generator() {
   f_init.close();
 
   // Print header
-  f_types_ << py_autogen_comment() << endl << py_imports() << endl << render_includes() << endl
-           << render_fastbinary_includes() << endl << endl;
+  f_types_ <<
+    py_autogen_comment() << endl <<
+    py_imports() << endl <<
+    render_includes() << endl <<
+    render_fastbinary_includes() <<
+    endl << endl;
 
-  f_consts_ << py_autogen_comment() << endl << py_imports() << endl << "from ttypes import *"
-            << endl << endl;
+  f_consts_ <<
+    py_autogen_comment() << endl <<
+    py_imports() << endl <<
+    "from .ttypes import *" << endl <<
+    endl;
 }
 
 /**
@@ -746,23 +753,15 @@ void t_py_generator::generate_py_struct_definition(ofstream& out,
         << endl;
   }
 
-  out << indent() << "def __hash__(self):" << endl;
-  indent_up();
-  indent(out) << "value = 17" << endl; // PYTHONHASHSEED would be better, but requires Python 3.2.3
-  for (m_iter = members.begin(); m_iter != members.end(); ++m_iter) {
-    indent(out) << "value = (value * 31) ^ hash(self." << (*m_iter)->get_name() + ")" << endl;
-  }
-  indent(out) << "return value" << endl;
-  indent_down();
-  out << endl;
-
   if (!gen_slots_) {
     // Printing utilities so that on the command line thrift
     // structs look pretty like dictionaries
-    out << indent() << "def __repr__(self):" << endl << indent() << "  L = ['%s=%r' % (key, value)"
-        << endl << indent() << "    for key, value in self.__dict__.iteritems()]" << endl
-        << indent() << "  return '%s(%s)' % (self.__class__.__name__, ', '.join(L))" << endl
-        << endl;
+    out <<
+      indent() << "def __repr__(self):" << endl <<
+      indent() << "  L = ['%s=%r' % (key, value)" << endl <<
+      indent() << "    for key, value in self.__dict__.items()]" << endl <<
+      indent() << "  return '%s(%s)' % (self.__class__.__name__, ', '.join(L))" << endl <<
+      endl;
 
     // Equality and inequality methods that compare by value
     out << indent() << "def __eq__(self, other):" << endl;
@@ -961,7 +960,7 @@ void t_py_generator::generate_service(t_service* tservice) {
   }
 
   f_service_ << "import logging" << endl
-             << "from ttypes import *" << endl
+             << "from .ttypes import *" << endl
              << "from thrift.Thrift import TProcessor" << endl
              << render_fastbinary_includes() << endl;
 
@@ -1141,26 +1140,32 @@ void t_py_generator::generate_service_client(t_service* tservice) {
   }
 
   if (gen_tornado_ && extends.empty()) {
-    f_service_ << indent() << "@gen.engine" << endl << indent()
-               << "def _start_receiving(self):" << endl << indent() << "  while True:" << endl
-               << indent() << "    try:" << endl << indent()
-               << "      frame = yield self._transport.readFrame()" << endl << indent()
-               << "    except TTransport.TTransportException as e:" << endl << indent()
-               << "      for future in self._reqs.itervalues():" << endl << indent()
-               << "        future.set_exception(e)" << endl << indent() << "      self._reqs = {}"
-               << endl << indent() << "      return" << endl << indent()
-               << "    tr = TTransport.TMemoryBuffer(frame)" << endl << indent()
-               << "    iprot = self._iprot_factory.getProtocol(tr)" << endl << indent()
-               << "    (fname, mtype, rseqid) = iprot.readMessageBegin()" << endl << indent()
-               << "    future = self._reqs.pop(rseqid, None)" << endl << indent()
-               << "    if not future:" << endl << indent()
-               << "      # future has already been discarded" << endl << indent()
-               << "      continue" << endl << indent()
-               << "    method = getattr(self, 'recv_' + fname)" << endl << indent()
-               << "    try:" << endl << indent() << "      result = method(iprot, mtype, rseqid)"
-               << endl << indent() << "    except Exception as e:" << endl << indent()
-               << "      future.set_exception(e)" << endl << indent() << "    else:" << endl
-               << indent() << "      future.set_result(result)" << endl << endl;
+    f_service_ <<
+      indent() << "@gen.engine" << endl <<
+      indent() << "def _start_receiving(self):" << endl <<
+      indent() << "  while True:" << endl <<
+      indent() << "    try:" << endl <<
+      indent() << "      frame = yield self._transport.readFrame()" << endl <<
+      indent() << "    except TTransport.TTransportException as e:" << endl <<
+      indent() << "      for future in self._reqs.values():" << endl <<
+      indent() << "        future.set_exception(e)" << endl <<
+      indent() << "      self._reqs = {}" << endl <<
+      indent() << "      return" << endl <<
+      indent() << "    tr = TTransport.TMemoryBuffer(frame)" << endl <<
+      indent() << "    iprot = self._iprot_factory.getProtocol(tr)" << endl <<
+      indent() << "    (fname, mtype, rseqid) = iprot.readMessageBegin()" << endl <<
+      indent() << "    method = getattr(self, 'recv_' + fname)" << endl <<
+      indent() << "    future = self._reqs.pop(rseqid, None)" << endl <<
+      indent() << "    if not future:" << endl <<
+      indent() << "      # future has already been discarded" << endl <<
+      indent() << "      continue" << endl <<
+      indent() << "    try:" << endl <<
+      indent() << "      result = method(iprot, mtype, rseqid)" << endl <<
+      indent() << "    except Exception as e:" << endl <<
+      indent() << "      future.set_exception(e)" << endl <<
+      indent() << "    else:" << endl <<
+      indent() << "      future.set_result(result)" << endl <<
+      endl;
   }
 
   // Generate client method implementations
@@ -1409,21 +1414,33 @@ void t_py_generator::generate_service_remote(t_service* tservice) {
   ofstream f_remote;
   f_remote.open(f_remote_name.c_str());
 
-  f_remote << "#!/usr/bin/env python" << endl << py_autogen_comment() << endl << "import sys"
-           << endl << "import pprint" << endl << "from urlparse import urlparse" << endl
-           << "from thrift.transport import TTransport" << endl
-           << "from thrift.transport import TSocket" << endl
-           << "from thrift.transport import TSSLSocket" << endl
-           << "from thrift.transport import THttpClient" << endl
-           << "from thrift.protocol import TBinaryProtocol" << endl << endl;
+  f_remote <<
+    "#!/usr/bin/env python" << endl <<
+    py_autogen_comment() << endl <<
+    "import sys" << endl <<
+    "import pprint" << endl <<
+    "if sys.version_info[0] == 3:" << endl <<
+    "  from urllib.parse import urlparse" << endl <<
+    "else:" << endl <<
+    "  from urlparse import urlparse" << endl <<
+    "from thrift.transport import TTransport" << endl <<
+    "from thrift.transport import TSocket" << endl <<
+    "from thrift.transport import TSSLSocket" << endl <<
+    "from thrift.transport import THttpClient" << endl <<
+    "from thrift.protocol import TBinaryProtocol" << endl <<
+    endl;
 
-  f_remote << "from " << module_ << " import " << service_name_ << endl << "from " << module_
-           << ".ttypes import *" << endl << endl;
+  f_remote <<
+    "from " << module_ << " import " << service_name_ << endl <<
+    "from " << module_ << ".ttypes import *" << endl <<
+    endl;
 
-  f_remote << "if len(sys.argv) <= 1 or sys.argv[1] == '--help':" << endl << "  print('')" << endl
-           << "  print('Usage: ' + sys.argv[0] + ' [-h host[:port]] [-u url] [-f[ramed]] [-s[sl]] "
-              "function [arg1 [arg2...]]')" << endl << "  print('')" << endl
-           << "  print('Functions:')" << endl;
+  f_remote <<
+    "if len(sys.argv) <= 1 or sys.argv[1] == '--help':" << endl <<
+    "  print('')" << endl <<
+    "  print('Usage: ' + sys.argv[0] + ' [-h host[:port]] [-u url] [-f[ramed]] [-s[sl]] function [arg1 [arg2...]]')" << endl <<
+    "  print('')" << endl <<
+    "  print('Functions:')" << endl;
   for (f_iter = functions.begin(); f_iter != functions.end(); ++f_iter) {
     f_remote << "  print('  " << (*f_iter)->get_returntype()->get_name() << " "
              << (*f_iter)->get_name() << "(";
@@ -1720,8 +1737,8 @@ void t_py_generator::generate_process_function(t_service* tservice, t_function* 
       // Kinda absurd
       f_service_ << indent() << "  error.raiseException()" << endl;
       for (x_iter = xceptions.begin(); x_iter != xceptions.end(); ++x_iter) {
-        f_service_ << indent() << "except " << type_name((*x_iter)->get_type()) << " as "
-                   << (*x_iter)->get_name() << ":" << endl;
+        f_service_ <<
+          indent() << "except " << type_name((*x_iter)->get_type()) << " as " << (*x_iter)->get_name() << ":" << endl;
         if (!tfunction->is_oneway()) {
           indent_up();
           f_service_ << indent() << "result." << (*x_iter)->get_name() << " = "
@@ -1854,11 +1871,15 @@ void t_py_generator::generate_process_function(t_service* tservice, t_function* 
       for (x_iter = xceptions.begin(); x_iter != xceptions.end(); ++x_iter) {
         f_service_ << indent() << "except " << type_name((*x_iter)->get_type()) << " as "
                    << (*x_iter)->get_name() << ":" << endl;
-        indent_up();
-        f_service_ << indent() << "msg_type = TMessageType.REPLY" << endl
-                   << indent() << "result." << (*x_iter)->get_name() << " = "
-                   << (*x_iter)->get_name() << endl;
-        indent_down();
+        if (!tfunction->is_oneway()) {
+          indent_up();
+          f_service_ << indent() << "msg_type = TMessageType.REPLY" << endl;
+          f_service_ << indent() << "result." << (*x_iter)->get_name() << " = "
+                     << (*x_iter)->get_name() << endl;
+          indent_down();
+        } else {
+          f_service_ << indent() << "pass" << endl;
+        }
       }
 
       f_service_ << indent() << "except Exception as ex:" << endl
@@ -1913,7 +1934,9 @@ void t_py_generator::generate_deserialize_field(ofstream& out,
         throw "compiler error: cannot serialize void field in a struct: " + name;
         break;
       case t_base_type::TYPE_STRING:
-        if (((t_base_type*)type)->is_binary() || !gen_utf8strings_) {
+        if (((t_base_type*)type)->is_binary()) {
+          out << "readBinary()";
+        } else if(!gen_utf8strings_) {
           out << "readString()";
         } else {
           out << "readString().decode('utf-8')";
@@ -1989,7 +2012,8 @@ void t_py_generator::generate_deserialize_container(ofstream& out, t_type* ttype
 
   // For loop iterates over elements
   string i = tmp("_i");
-  indent(out) << "for " << i << " in xrange(" << size << "):" << endl;
+  indent(out) <<
+    "for " << i << " in range(" << size << "):" << endl;
 
   indent_up();
 
@@ -2085,7 +2109,9 @@ void t_py_generator::generate_serialize_field(ofstream& out, t_field* tfield, st
         throw "compiler error: cannot serialize void field in a struct: " + name;
         break;
       case t_base_type::TYPE_STRING:
-        if (((t_base_type*)type)->is_binary() || !gen_utf8strings_) {
+        if (((t_base_type*)type)->is_binary()) {
+          out << "writeBinary(" << name << ")";
+        } else if (!gen_utf8strings_) {
           out << "writeString(" << name << ")";
         } else {
           out << "writeString(" << name << ".encode('utf-8'))";
@@ -2423,8 +2449,10 @@ string t_py_generator::type_to_spec_args(t_type* ttype) {
     ttype = ((t_typedef*)ttype)->get_type();
   }
 
-  if (ttype->is_base_type() || ttype->is_enum()) {
-    return "None";
+  if (ttype->is_base_type() && reinterpret_cast<t_base_type*>(ttype)->is_binary()) {
+    return  "'BINARY'";
+  } else if (ttype->is_base_type() || ttype->is_enum()) {
+    return  "None";
   } else if (ttype->is_struct() || ttype->is_xception()) {
     return "(" + type_name(ttype) + ", " + type_name(ttype) + ".thrift_spec)";
   } else if (ttype->is_map()) {

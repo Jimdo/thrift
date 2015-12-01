@@ -17,20 +17,22 @@
  * under the License.
  */
 
-#ifndef THRIFT_PROTOCOL_TPROTOCOLTYPES_H_
-#define THRIFT_PROTOCOL_TPROTOCOLTYPES_H_ 1
+#ifndef _THRIFT_TBASE_H_
+#define _THRIFT_TBASE_H_ 1
+
+#include <thrift/Thrift.h>
+#include <thrift/protocol/TProtocol.h>
 
 namespace apache {
 namespace thrift {
-namespace protocol {
 
-enum PROTOCOL_TYPES {
-  T_BINARY_PROTOCOL = 0,
-  T_JSON_PROTOCOL = 1,
-  T_COMPACT_PROTOCOL = 2,
+class TBase {
+public:
+  virtual ~TBase(){};
+  virtual uint32_t read(protocol::TProtocol* iprot) = 0;
+  virtual uint32_t write(protocol::TProtocol* oprot) const = 0;
 };
 }
-}
-} // apache::thrift::protocol
+} // apache::thrift
 
-#endif // #define _THRIFT_PROTOCOL_TPROTOCOLTYPES_H_ 1
+#endif // #ifndef _THRIFT_TBASE_H_

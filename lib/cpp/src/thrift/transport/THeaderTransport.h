@@ -20,16 +20,18 @@
 #ifndef THRIFT_TRANSPORT_THEADERTRANSPORT_H_
 #define THRIFT_TRANSPORT_THEADERTRANSPORT_H_ 1
 
-#include <thrift/protocol/TBinaryProtocol.h>
+#include <bitset>
+#include <vector>
+#include <string>
+#include <map>
+
+#include <boost/scoped_array.hpp>
+#include <boost/shared_ptr.hpp>
+
 #include <thrift/protocol/TProtocolTypes.h>
 #include <thrift/transport/TBufferTransports.h>
 #include <thrift/transport/TTransport.h>
 #include <thrift/transport/TVirtualTransport.h>
-
-#include <bitset>
-#include <boost/scoped_array.hpp>
-#include <pwd.h>
-#include <unistd.h>
 
 // Don't include the unknown client.
 #define CLIENT_TYPES_LEN 3
@@ -130,7 +132,7 @@ public:
   void readHeaderFormat(uint16_t headerSize, uint32_t sz);
 
   /**
-   * Untransform the data based on the recieved header flags
+   * Untransform the data based on the received header flags
    * On conclusion of function, setReadBuffer is called with the
    * untransformed data.
    *

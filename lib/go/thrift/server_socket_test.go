@@ -17,20 +17,34 @@
  * under the License.
  */
 
-#ifndef THRIFT_PROTOCOL_TPROTOCOLTYPES_H_
-#define THRIFT_PROTOCOL_TPROTOCOLTYPES_H_ 1
+package thrift
 
-namespace apache {
-namespace thrift {
-namespace protocol {
+import (
+	"fmt"
+	"testing"
+)
 
-enum PROTOCOL_TYPES {
-  T_BINARY_PROTOCOL = 0,
-  T_JSON_PROTOCOL = 1,
-  T_COMPACT_PROTOCOL = 2,
-};
+func TestSocketIsntListeningAfterInterrupt(t *testing.T) {
+	host := "127.0.0.1"
+	port := 9090
+	addr := fmt.Sprintf("%s:%d", host, port)
+
+	socket := CreateServerSocket(t, addr)
+	socket.Listen()
+	socket.Interrupt()
+
+	newSocket := CreateServerSocket(t, addr)
+	err := newSocket.Listen()
+	defer newSocket.Interrupt()
+	if err != nil {
+		t.Fatalf("Failed to rebinds: %s", err)
+	}
 }
-}
-} // apache::thrift::protocol
 
-#endif // #define _THRIFT_PROTOCOL_TPROTOCOLTYPES_H_ 1
+func CreateServerSocket(t *testing.T, addr string) *TServerSocket {
+	socket, err := NewTServerSocket(addr)
+	if err != nil {
+		t.Fatalf("Failed to create server socket: %s", err)
+	}
+	return socket
+}
